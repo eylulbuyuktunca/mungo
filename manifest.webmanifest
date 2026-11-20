@@ -1,5 +1,5 @@
 {
-  "name": "mungo — Abidin ile Kitaplığım",
+  "name": "mungo · Kitap Günlüğüm",
   "short_name": "mungo",
   "description": "Okuma günlüğün: kitaplığın, okuma kayıtların, zincirlerin ve notların. Veriler yalnızca senin cihazında durur.",
   "lang": "tr",
@@ -10,7 +10,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFF6E6",
-  "theme_color": "#97332D",
+  "theme_color": "#9B3A2E",
   "categories": ["books", "lifestyle", "productivity"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

@@ -1,16 +1,7 @@
 # mungo
 
-Abidin ile okuma günlüğü. Bu klasörün tamamı GitHub Pages'e yüklenir.
+Kitap günlüğün. Okuduğun kitapları, nerede kaldığını ve notlarını tut; Abidin de sana eşlik etsin.
 
-## Dosyalar
+Uygulamayı aç: https://eylulbuyuktunca.github.io/mungo/
 
-- `index.html`: uygulamanın kendisi
-- `manifest.webmanifest`: telefona "uygulama olarak kur" bilgisi (ad, renk, ikonlar)
-- `sw.js`: uygulamanın internetsiz açılmasını sağlayan service worker
-- `icons/`: ana ekran ikonları
-
-## Güncelleme yaparken
-
-`index.html` her değiştiğinde `sw.js` dosyasının en üstündeki `VERSION` satırındaki numarayı bir artır (örneğin `mungo-v22` → `mungo-v23`). Böylece telefonlar yeni sürümü indirir.
-
-Kullanıcı verileri (kitaplar, kayıtlar, notlar) sunucuda değil, her kullanıcının kendi tarayıcısında durur. Yeni sürüm yüklemek bu verileri silmez.
+Bütün kayıtların yalnızca kendi cihazında durur, hiçbir sunucuya gönderilmez.
