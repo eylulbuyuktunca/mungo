@@ -2003,7 +2003,7 @@ body.is-mobile-preview .chain-template {min-height:118px;padding:14px}
 .mungo-onboarding-eyebrow {color:var(--green-ink,var(--bordo));font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;}
 .mungo-onboarding-skip {background:transparent;border:0;color:var(--muted);font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;min-height:44px;padding:6px;white-space:nowrap;}
 .mungo-onboarding-copy h2 {font-family:var(--head);font-size:clamp(27px,3.3vw,35px);font-weight:700;line-height:1.16;letter-spacing:-.013em;color:var(--bordo);margin:0;}
-.mungo-onboarding-copy p {font-size:15px;line-height:1.68;color:var(--muted);margin:0;max-width:38ch;}
+.mungo-onboarding-copy p,#mungo-onboarding-description {font-size:15px;line-height:1.68;color:var(--muted);margin:0;max-width:38ch;}
 .mungo-onboarding-feature {padding:12px 14px;background:var(--surface-alt);border:1px solid var(--border);border-radius:12px;color:var(--ink);font-size:13px;line-height:1.5;}
 .mungo-onboarding-progress {display:flex;gap:7px;margin-top:auto;padding-top:14px;}
 .mungo-onboarding-progress span {width:25px;height:5px;border-radius:99px;background:var(--border);transition:background .2s,width .2s;}
@@ -2024,7 +2024,7 @@ body.is-mobile-preview .chain-template {min-height:118px;padding:14px}
  .mungo-onboarding-art-label {font-size:16px;}
  .mungo-onboarding-copy {padding:17px 20px 20px;gap:11px;}
  .mungo-onboarding-copy h2 {font-size:26px;}
- .mungo-onboarding-copy p {font-size:14px;line-height:1.55;max-width:none;}
+ .mungo-onboarding-copy p,#mungo-onboarding-description {font-size:14px;line-height:1.55;max-width:none;}
  .mungo-onboarding-progress {padding-top:3px;}
 }
 @media(max-width:340px) {
@@ -2295,6 +2295,10 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 .mungo-onboarding-art-label{font-size:26px!important;line-height:1.1!important;text-align:center;color:var(--bordo)!important}
 @media(max-width:660px), (max-height:590px){.mungo-onboarding-art-label{font-size:19px!important;text-align:left}}
 @media(max-width:660px), (max-height:590px){.abidin-frame-tour{width:104px!important}}
+.mungo-tour-steps{margin:10px 0 0;padding:0;list-style:none;counter-reset:st;display:grid;gap:8px}
+.mungo-tour-steps{max-width:46ch}
+.mungo-tour-steps li{color:var(--ink);counter-increment:st;position:relative;padding-left:34px;line-height:1.45}
+.mungo-tour-steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:24px;height:24px;display:grid;place-items:center;background:var(--green);color:#FFF6E2;font-weight:700;font-size:13px}
 </style>
 </head>
 <body class="min-h-screen pb-24 md:pb-10">
@@ -2313,7 +2317,7 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
           <button type="button" id="mungo-onboarding-skip" class="mungo-onboarding-skip">Turu geç</button>
         </div>
         <h2 id="mungo-onboarding-title">Merhaba, ben Abidin!</h2>
-        <p id="mungo-onboarding-description">mungo'ya hoş geldin. Ben de bu küçük kitaplığın kütüphanecisiyim. Sana burayı kısacık tanıtayım.</p>
+        <div id="mungo-onboarding-description">mungo'ya hoş geldin.</div>
         <div id="mungo-onboarding-feature" class="mungo-onboarding-feature">📚 Kitapların, okuma notların ve hatıraların için kendi köşen.</div>
         <div id="mungo-onboarding-progress" class="mungo-onboarding-progress" aria-label="Tanıtım ilerlemesi"></div>
         <div class="mungo-onboarding-actions">
@@ -3309,7 +3313,7 @@ function sanitizeState(raw) {
         color: OLD_CHAIN_COLORS[String(c.color || "").toUpperCase()] || c.color
     }));
     if (!isDayKey(s.selectedDay)) s.selectedDay = todayKey();
-    if (![ "today", "chains", "library", "calendar", "stats" ].includes(s.activeTab)) s.activeTab = "today";
+    s.activeTab = "today";
     if ([ "owned", "lent", "borrowed", "private" ].includes(s.libraryFilter)) {
         s.ownerFilter = s.libraryFilter;
         s.libraryFilter = "all";
@@ -3319,18 +3323,57 @@ function sanitizeState(raw) {
     return s;
 }
 
+const CHAIN_COLORS = [ {
+    name: "Kiremit",
+    hex: "#9B3A2E"
+}, {
+    name: "Hardal",
+    hex: "#D9A24A"
+}, {
+    name: "Haki",
+    hex: "#736F45"
+}, {
+    name: "Kahve",
+    hex: "#7A5240"
+}, {
+    name: "Krem",
+    hex: "#E8D3A6"
+} ];
+
+const OLD_CHAIN_COLORS = {
+    "#7FA7C9": "#7A5240",
+    "#97332D": "#9B3A2E",
+    "#EBA239": "#D9A24A",
+    "#8F9F25": "#736F45",
+    "#FFE4A1": "#E8D3A6"
+};
+
 function loadState() {
+    let raw = null;
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            const saved = JSON.parse(raw);
-            if (saved && Array.isArray(saved.books) && Array.isArray(saved.sessions) && Array.isArray(saved.notes)) return sanitizeState(saved);
-        }
+        raw = localStorage.getItem(STORAGE_KEY);
     } catch (e) {}
+    if (!raw) return structuredClone(demo);
+    try {
+        const saved = JSON.parse(raw);
+        if (saved && Array.isArray(saved.books) && Array.isArray(saved.sessions) && Array.isArray(saved.notes)) return sanitizeState(saved);
+    } catch (e) {
+        console.error(e);
+    }
+    try {
+        localStorage.setItem(STORAGE_KEY + "_kurtarma_" + Date.now(), raw);
+    } catch (e) {}
+    window.__loadFailed = true;
     return structuredClone(demo);
 }
 
 let state = loadState();
+
+if (window.__loadFailed) setTimeout(() => {
+    try {
+        showToast("Kaydın okunamadı, bir kopyası saklandı. JSON yedeğinle geri yükleyebilirsin.");
+    } catch (e) {}
+}, 800);
 
 if (!Array.isArray(state.chains)) state.chains = [];
 
@@ -3561,31 +3604,6 @@ function parseShelves(input) {
     }
     return tags;
 }
-
-const CHAIN_COLORS = [ {
-    name: "Kiremit",
-    hex: "#9B3A2E"
-}, {
-    name: "Hardal",
-    hex: "#D9A24A"
-}, {
-    name: "Haki",
-    hex: "#736F45"
-}, {
-    name: "Kahve",
-    hex: "#7A5240"
-}, {
-    name: "Krem",
-    hex: "#E8D3A6"
-} ];
-
-const OLD_CHAIN_COLORS = {
-    "#7FA7C9": "#7A5240",
-    "#97332D": "#9B3A2E",
-    "#EBA239": "#D9A24A",
-    "#8F9F25": "#736F45",
-    "#FFE4A1": "#E8D3A6"
-};
 
 const CHAIN_TEMPLATES = [ {
     id: "reading",
@@ -6662,9 +6680,14 @@ const mungoTourSlides = [ {
     body: "mungo’ya hoş geldin! Ben bu kitaplığın kütüphanecisiyim. Burada ne okuduğunu, nerede kaldığını ve kitaplar hakkında düşündüklerini tutabilirsin.",
     note: "Kitapların, okuma kayıtların ve notların hep bu cihazda kalır."
 }, {
-    title: "Önce kitaplığını kuralım.",
-    body: "Kitaplığım bölümünden kitap ekleyebilir, okuduklarını, okumak istediklerini ve kendi raflarını düzenleyebilirsin.",
-    note: "Kitabı adıyla ara ya da barkodunu kamerayla tara."
+    title: "Kitap nasıl eklenir?",
+    body: "Sağ üstteki “Kitap ekle” düğmesine dokun, sonra:",
+    steps: [ "Kitabın adını yaz ve listeden seç. Kapak, yazar ve sayfa sayısı kendiliğinden gelir.", "Ya da “Kamerayla Tara”ya dokunup arka kapaktaki barkodun fotoğrafını çek.", "Okuyorum, Okuyacağım gibi bir durum seç ve “Kitaplığa Ekle” de." ],
+    note: "Örnek kitapları, Bugün ekranının üstündeki “Örnekleri temizle” bağlantısıyla kaldırabilirsin."
+}, {
+    title: "Kitaplığını düzenle.",
+    body: "Kitaplığım bölümünde okuduklarını, okumak istediklerini, ödünç verdiklerini ve kendi raflarını görürsün.",
+    note: "Sıradaki kitaplarını da buradan sıraya koyabilirsin."
 }, {
     title: "İlerlemeni kaydet.",
     body: "Bugün ekranından kaldığın sayfayı gir. Zincirlerim bölümünde günlük ya da haftalık bir hedef kurabilirsin.",
@@ -6697,11 +6720,17 @@ function mungoRenderTour() {
     const s = mungoTourSlides[mungoTourIndex];
     $("mungo-onboarding-counter").textContent = `Kısa tur · ${mungoTourIndex + 1} / ${mungoTourSlides.length}`;
     $("mungo-onboarding-title").textContent = s.title;
-    $("mungo-onboarding-description").textContent = s.body;
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;"
+    }[c]));
+    $("mungo-onboarding-description").innerHTML = esc(s.body) + (s.steps ? '<ol class="mungo-tour-steps">' + s.steps.map(x => "<li>" + esc(x) + "</li>").join("") + "</ol>" : "");
     $("mungo-onboarding-feature").textContent = s.note;
     $("mungo-onboarding-progress").innerHTML = mungoTourSlides.map((_, i) => `<span class="${i === mungoTourIndex ? "is-active" : ""}" aria-hidden="true"></span>`).join("");
     $("mungo-onboarding-back").hidden = mungoTourIndex === 0;
-    $("mungo-onboarding-next").textContent = mungoTourIndex === mungoTourSlides.length - 1 ? "Kitaplığıma geç" : "Devam et";
+    $("mungo-onboarding-next").textContent = mungoTourIndex === mungoTourSlides.length - 1 ? "Başlayalım" : "Devam et";
 }
 
 function mungoOpenTour() {
@@ -6739,7 +6768,7 @@ $("mungo-onboarding-next").addEventListener("click", () => {
         mungoRenderTour();
     } else {
         mungoCloseTour();
-        showTab("library");
+        showTab("today");
     }
 });
 
