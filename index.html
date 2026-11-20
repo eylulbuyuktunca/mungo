@@ -2300,6 +2300,16 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 .mungo-tour-steps li{color:var(--ink);counter-increment:st;position:relative;padding-left:34px;line-height:1.45}
 .mungo-tour-steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:24px;height:24px;display:grid;place-items:center;background:var(--green);color:#FFF6E2;font-weight:700;font-size:13px}
 .mungo-tour-install{margin-top:12px;padding:8px 16px;font-weight:700}
+.import-list{max-height:260px;overflow-y:auto;border:1.5px solid var(--line);background:var(--surface)}
+.import-row{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px}
+.import-row:last-child{border-bottom:0}
+.import-row input{margin-top:3px;flex:none}
+.import-row-info{display:flex;flex-direction:column;min-width:0}
+.import-row-info strong{color:var(--ink);font-weight:700}
+.import-row-info span{color:var(--muted);font-size:12px}
+.import-row-info em{color:var(--bordo);font-size:11px;font-style:normal;font-weight:700}
+.import-row.is-dup{opacity:.7}
+#import-confirm-btn:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body class="min-h-screen pb-24 md:pb-10">
@@ -2578,9 +2588,11 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
         <div>
           <h2 class="font-serif-display text-2xl font-bold text-[var(--bordo)]">Kitaplığım</h2>
           <p class="text-xs text-[var(--muted)]" id="library-count"></p>
+          <p id="import-progress" class="hidden text-xs font-semibold text-[var(--green)]" aria-live="polite"></p>
         </div>
         <div class="w-full sm:w-auto flex flex-col sm:flex-row items-stretch gap-2">
         <input id="library-search" type="text" placeholder="Kitap, yazar veya çevirmen ara..." aria-label="Kitaplıkta ara" class="input-field w-full sm:w-64 rounded-xl px-3.5 py-2 text-sm">
+        <button id="open-import-btn" type="button" class="retro-btn-outline rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap">Listeden içe aktar</button>
         <select id="library-sort" class="input-field rounded-xl px-3.5 py-2 text-sm" aria-label="Kitaplığı sırala">
           <option value="recent">Son eklenenler</option>
           <option value="title">Kitap adı A–Z</option>
@@ -2789,6 +2801,7 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
         <h3 id="book-modal-title" class="font-serif-display text-xl font-bold text-[var(--bordo)]">Kitap Ekle</h3>
         <button data-close-modal="add-book-modal" class="text-lg font-bold text-[var(--muted)]">✕</button>
       </div>
+      <button type="button" id="bulk-import-link" class="text-left text-xs font-semibold underline text-[var(--bordo)]">Elinde bir kitap listesi mi var? Hepsini birden içe aktar</button>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label class="block text-xs font-semibold text-[var(--muted)] mb-1">Kitap Adı *</label>
@@ -2913,6 +2926,44 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
   <div id="book-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
     <div class="retro-card book-detail w-full max-w-2xl max-h-[92vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="book-detail-title">
       <div id="book-detail-body"></div>
+    </div>
+  </div>
+
+  <div id="import-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+    <div class="retro-card w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="font-serif-display text-xl font-bold text-[var(--bordo)]">Listeden içe aktar</h3>
+        <button data-close-modal="import-modal" class="text-lg font-bold text-[var(--muted)]" aria-label="Kapat">✕</button>
+      </div>
+      <p class="text-sm text-[var(--muted)]">Elindeki kitap listesini toplu ekle. Excel (.xlsx), CSV ya da Goodreads dışa aktarma dosyası olur. İlk satırda “Kitap adı, Yazar, Yayınevi” gibi başlıklar varsa sütunları kendim bulurum.</p>
+      <label for="import-file-input" class="retro-btn inline-block cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold">Dosya seç</label>
+      <input id="import-file-input" type="file" accept=".xlsx,.csv,.tsv,.txt,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+      <div>
+        <label for="import-paste" class="block text-xs font-semibold text-[var(--muted)] mb-1">Ya da buraya yapıştır: her satıra bir kitap, “Kitap adı – Yazar”</label>
+        <textarea id="import-paste" rows="4" class="input-field w-full rounded-xl px-3 py-2 text-sm" placeholder="Tutunamayanlar – Oğuz Atay&#10;Kuyucaklı Yusuf – Sabahattin Ali"></textarea>
+        <button id="import-paste-btn" type="button" class="retro-btn-outline mt-2 rounded-xl px-3.5 py-2 text-xs font-semibold">Listeyi oku</button>
+      </div>
+      <div id="import-preview" class="hidden space-y-3">
+        <div class="flex items-center justify-between gap-2 text-xs">
+          <span id="import-summary" class="font-semibold text-[var(--bordo)]"></span>
+          <span class="shrink-0"><button type="button" id="import-all" class="underline">Hepsi</button> · <button type="button" id="import-none" class="underline">Hiçbiri</button></span>
+        </div>
+        <div id="import-preview-list" class="import-list"></div>
+        <div class="grid gap-2 text-sm">
+          <label class="block"><span class="block text-xs font-semibold text-[var(--muted)] mb-1">Bu kitapların durumu</span>
+            <select id="import-default-status" class="input-field w-full rounded-xl px-3 py-2 text-sm">
+              <option value="toread">Okuyacağım</option><option value="finished">Okudum</option><option value="reading">Okuyorum</option><option value="wishlist">İstek Listesi</option>
+            </select>
+            <span id="import-has-status" class="hidden block mt-1 text-xs text-[var(--muted)]">Listede durumu yazan kitaplar kendi durumuyla eklenir.</span>
+          </label>
+          <label class="flex items-center gap-2"><input id="import-owned" type="checkbox" checked="checked"> Hepsi benim kitabım (Kitaplığımda)</label>
+          <label class="flex items-center gap-2"><input id="import-enrich" type="checkbox" checked="checked"> Kapak ve sayfa sayısını internetten tamamla</label>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button data-close-modal="import-modal" class="retro-btn-outline rounded-xl px-4 py-2 text-sm font-semibold">Vazgeç</button>
+          <button id="import-confirm-btn" class="retro-btn rounded-xl px-4 py-2 text-sm font-semibold">Ekle</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -5541,6 +5592,7 @@ function resetBookForm() {
 
 function openBookForm(id = null) {
     resetBookForm();
+    $("bulk-import-link").classList.remove("hidden");
     if (id) {
         const b = state.books.find(x => x.id === id);
         if (!b) return;
@@ -5565,6 +5617,7 @@ function openBookForm(id = null) {
         $("new-finished-date").value = b.finishedAt || "";
         syncFinishedField();
         $("book-modal-title").textContent = "Kitap Bilgilerini Düzenle";
+        $("bulk-import-link").classList.add("hidden");
         $("save-book-btn").textContent = "Değişiklikleri Kaydet";
         $("isbn-helper-input").value = b.isbn || "";
     }
@@ -6849,6 +6902,473 @@ $("mungo-onboarding").addEventListener("keydown", e => {
 });
 
 if (!mungoTourSeen()) mungoOpenTour();
+
+const IMPORT_STATUS_DEFAULTS = [ "toread", "finished", "reading", "wishlist" ];
+
+let importRows = [];
+
+function importFold(s) {
+    return fold(s);
+}
+
+function mapImportStatus(v) {
+    const f = fold(v);
+    if (!f) return null;
+    if (/^(read|okudum|okundu|bitti|bitirdim|tamamlandi|finished)$/.test(f)) return "finished";
+    if (/(currently reading|okuyorum|okunuyor|reading)/.test(f)) return "reading";
+    if (/(to read|okuyacagim|okunacak|toread)/.test(f)) return "toread";
+    if (/(istek|wishlist|want)/.test(f)) return "wishlist";
+    if (/(ara verdim|paused|ara)/.test(f)) return "paused";
+    if (/(yarim|dnf|did not finish|biraktim)/.test(f)) return "dnf";
+    return null;
+}
+
+const IMPORT_COLS = [ [ "isbn", /isbn/ ], [ "title", /^(title|book title|kitap|kitap adi|kitabin adi|kitap ismi|ad|adi|isim|baslik|eser|eser adi)$|kitap ad|kitabin ad|^title/ ], [ "author", /yazar|author|hazirlayan/ ], [ "publisher", /yayinevi|yayin evi|publisher|yayinci/ ], [ "translator", /cevirmen|ceviren|translator/ ], [ "pages", /sayfa|number of pages|^pages$/ ], [ "status", /^durum|okuma durumu|exclusive shelf|^status/ ], [ "rating", /^puan|my rating|^rating/ ] ];
+
+function detectImportColumns(rows) {
+    for (let r = 0; r < Math.min(rows.length, 5); r++) {
+        const map = {};
+        rows[r].forEach((cell, i) => {
+            const f = fold(cell);
+            if (!f) return;
+            for (const [key, re] of IMPORT_COLS) {
+                if (map[key] === undefined && re.test(f)) {
+                    map[key] = i;
+                    break;
+                }
+            }
+        });
+        if (map.title !== undefined) {
+            const i13 = rows[r].findIndex(c => /isbn ?13/.test(fold(c)));
+            if (i13 >= 0) map.isbn = i13;
+            return {
+                map: map,
+                start: r + 1
+            };
+        }
+    }
+    return {
+        map: {
+            title: 0,
+            author: 1,
+            publisher: 2
+        },
+        start: 0
+    };
+}
+
+function rowsToBooks(rows) {
+    rows = rows.filter(r => Array.isArray(r) && r.some(c => String(c ?? "").trim()));
+    if (!rows.length) return [];
+    const {map: map, start: start} = detectImportColumns(rows);
+    const get = (r, k) => map[k] === undefined ? "" : String(r[map[k]] ?? "").trim();
+    const seen = new Set;
+    const out = [];
+    for (const r of rows.slice(start)) {
+        let title = get(r, "title").replace(/\s*\([^)]*#\d+[^)]*\)\s*$/, "").trim();
+        if (!title) continue;
+        const author = get(r, "author");
+        const key = fold(title) + "|" + fold(author);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const pagesN = parseInt(get(r, "pages").replace(/\D/g, ""), 10);
+        const ratingN = Math.round(Number(get(r, "rating").replace(",", ".")));
+        out.push({
+            title: title.slice(0, 300),
+            author: author.slice(0, 200),
+            publisher: get(r, "publisher").slice(0, 200),
+            translator: get(r, "translator").slice(0, 200),
+            isbn: normalizeISBN(get(r, "isbn")).slice(0, 13),
+            totalPages: pagesN > 0 && pagesN < 1e5 ? pagesN : 0,
+            status: mapImportStatus(get(r, "status")),
+            rating: ratingN >= 1 && ratingN <= 5 ? ratingN : 0
+        });
+        if (out.length >= 5e3) break;
+    }
+    return out;
+}
+
+function parseDelimited(text) {
+    const firstLine = text.split(/\r?\n/).find(l => l.trim()) || "";
+    const counts = {
+        "\t": (firstLine.match(/\t/g) || []).length,
+        ";": (firstLine.match(/;/g) || []).length,
+        ",": (firstLine.match(/,/g) || []).length
+    };
+    const delim = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][1] ? Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] : "\t";
+    const rows = [];
+    let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') {
+                    cell += '"';
+                    i++;
+                } else q = false;
+            } else cell += ch;
+            continue;
+        }
+        if (ch === '"' && cell === "") q = true; else if (ch === delim) {
+            row.push(cell);
+            cell = "";
+        } else if (ch === "\n") {
+            row.push(cell.replace(/\r$/, ""));
+            rows.push(row);
+            row = [];
+            cell = "";
+        } else cell += ch;
+    }
+    row.push(cell.replace(/\r$/, ""));
+    rows.push(row);
+    return rows.map(r => r.map(c => c.replace(/^="?|"$/g, m => m === '="' || m === "=" ? "" : m).trim()));
+}
+
+function parsePlainList(text) {
+    return text.split(/\r?\n/).map(l => l.replace(/^\s*(\d+[\.\)]|[-•*])\s+/, "").trim()).filter(Boolean).map(l => {
+        for (const sep of [ "\t", " – ", " — ", " - ", " / ", " ; ", ";" ]) {
+            const i = l.indexOf(sep);
+            if (i > 0) return [ l.slice(0, i).trim(), l.slice(i + sep.length).trim() ];
+        }
+        return [ l, "" ];
+    });
+}
+
+function parseImportText(text) {
+    text = String(text || "").replace(/^﻿/, "");
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (!lines.length) return [];
+    const looksTable = lines.slice(0, 3).every(l => /[\t;]/.test(l) || (l.match(/,/g) || []).length >= 2 || /^"/.test(l));
+    if (looksTable) return rowsToBooks(parseDelimited(text));
+    const plain = parsePlainList(text);
+    const head = fold(plain[0][0]);
+    if (/^(kitap|kitap adi|title|ad|baslik)$/.test(head)) plain.shift();
+    return rowsToBooks([ [ "Kitap adı", "Yazar" ], ...plain ]);
+}
+
+async function unzipEntries(buf, wanted) {
+    const v = new DataView(buf);
+    let eocd = -1;
+    for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 66e3); i--) {
+        if (v.getUint32(i, true) === 101010256) {
+            eocd = i;
+            break;
+        }
+    }
+    if (eocd < 0) throw Error("zip");
+    const count = v.getUint16(eocd + 10, true);
+    let p = v.getUint32(eocd + 16, true);
+    const dec = new TextDecoder;
+    const out = {};
+    for (let n = 0; n < count; n++) {
+        if (v.getUint32(p, true) !== 33639248) break;
+        const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true), nlen = v.getUint16(p + 28, true), elen = v.getUint16(p + 30, true), clen = v.getUint16(p + 32, true), off = v.getUint32(p + 42, true);
+        const name = dec.decode(new Uint8Array(buf, p + 46, nlen));
+        p += 46 + nlen + elen + clen;
+        if (!wanted(name)) continue;
+        const start = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true);
+        const data = new Uint8Array(buf, start, csize);
+        if (method === 0) out[name] = dec.decode(data); else if (method === 8) {
+            if (typeof DecompressionStream === "undefined") throw Error("nodecomp");
+            const s = new Blob([ data ]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+            out[name] = await new Response(s).text();
+        }
+    }
+    return out;
+}
+
+async function parseXLSX(buf) {
+    const files = await unzipEntries(buf, n => /^xl\/(workbook\.xml|_rels\/workbook\.xml\.rels|sharedStrings\.xml|worksheets\/[^/]+\.xml)$/.test(n));
+    const tags = (el, n) => el.getElementsByTagNameNS("*", n);
+    const xml = t => (new DOMParser).parseFromString(t || "<x/>", "application/xml");
+    let sheetPath = Object.keys(files).filter(n => n.startsWith("xl/worksheets/")).sort()[0];
+    try {
+        const wb = xml(files["xl/workbook.xml"]);
+        const first = tags(wb, "sheet")[0];
+        const rid = first && (first.getAttribute("r:id") || first.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id"));
+        const rel = [ ...tags(xml(files["xl/_rels/workbook.xml.rels"]), "Relationship") ].find(r => r.getAttribute("Id") === rid);
+        if (rel) {
+            const t = rel.getAttribute("Target").replace(/^\/?(xl\/)?/, "");
+            if (files["xl/" + t]) sheetPath = "xl/" + t;
+        }
+    } catch (e) {}
+    if (!sheetPath) throw Error("sheet");
+    const shared = [ ...tags(xml(files["xl/sharedStrings.xml"]), "si") ].map(si => [ ...tags(si, "t") ].filter(t => t.parentNode.localName !== "rPh").map(t => t.textContent).join(""));
+    const rows = [];
+    for (const r of tags(xml(files[sheetPath]), "row")) {
+        const row = [];
+        for (const c of tags(r, "c")) {
+            const ref = c.getAttribute("r") || "";
+            let col = 0;
+            for (const ch of ref.replace(/\d+/g, "")) col = col * 26 + (ch.charCodeAt(0) - 64);
+            col = col ? col - 1 : row.length;
+            const t = c.getAttribute("t");
+            const vEl = tags(c, "v")[0];
+            let val = "";
+            if (t === "s") val = shared[Number(vEl?.textContent)] ?? ""; else if (t === "inlineStr") val = [ ...tags(c, "t") ].map(x => x.textContent).join(""); else val = vEl?.textContent ?? "";
+            row[col] = val;
+        }
+        rows.push(Array.from(row, x => x ?? ""));
+    }
+    return rows;
+}
+
+async function readImportFile(file) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+        showToast("Dosya çok büyük (en fazla 15 MB).");
+        return;
+    }
+    try {
+        let books;
+        if (/\.xlsx$/i.test(file.name) || file.type.includes("spreadsheetml")) books = rowsToBooks(await parseXLSX(await file.arrayBuffer())); else if (/\.(xls|numbers|ods)$/i.test(file.name)) {
+            showToast("Bu dosyayı Excel’de “.xlsx” ya da “CSV” olarak kaydedip tekrar dene.");
+            return;
+        } else {
+            const buf = await file.arrayBuffer();
+            let text;
+            try {
+                text = new TextDecoder("utf-8", {
+                    fatal: true
+                }).decode(buf);
+            } catch (e) {
+                text = new TextDecoder("windows-1254").decode(buf);
+            }
+            books = parseImportText(text);
+        }
+        showImportPreview(books);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message === "nodecomp" ? "Bu tarayıcı Excel dosyasını açamıyor. CSV olarak kaydedip dene." : "Dosya okunamadı. CSV ya da .xlsx olarak kaydedip tekrar dene.");
+    } finally {
+        $("import-file-input").value = "";
+    }
+}
+
+function showImportPreview(books) {
+    const demoIds = new Set([ "b1", "b2", "b3", "b4", "b5" ]);
+    importRows = books.map(b => {
+        let dup = findDuplicateBook(b);
+        if (dup && state.isDemo && demoIds.has(dup.id)) dup = null;
+        return {
+            ...b,
+            dup: !!dup,
+            checked: !dup
+        };
+    });
+    const list = $("import-preview-list");
+    list.innerHTML = "";
+    if (!importRows.length) {
+        $("import-preview").classList.add("hidden");
+        showToast("Listede kitap bulamadım. İlk sütunda kitap adları olmalı.");
+        return;
+    }
+    importRows.forEach((b, i) => {
+        const row = document.createElement("label");
+        row.className = "import-row" + (b.dup ? " is-dup" : "");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = b.checked;
+        cb.addEventListener("change", () => {
+            importRows[i].checked = cb.checked;
+            updateImportSummary();
+        });
+        const info = document.createElement("span");
+        info.className = "import-row-info";
+        const t = document.createElement("strong");
+        t.textContent = b.title;
+        const s = document.createElement("span");
+        s.textContent = [ b.author, b.publisher ].filter(Boolean).join(" · ") + (b.status ? ` · ${statusLabel(b.status)}` : "");
+        info.append(t, s);
+        if (b.dup) {
+            const d = document.createElement("em");
+            d.textContent = "zaten kitaplığında";
+            info.append(d);
+        }
+        row.append(cb, info);
+        list.append(row);
+    });
+    $("import-preview").classList.remove("hidden");
+    $("import-has-status").classList.toggle("hidden", !importRows.some(b => b.status));
+    updateImportSummary();
+    $("import-preview").scrollIntoView({
+        block: "nearest"
+    });
+}
+
+function updateImportSummary() {
+    const n = importRows.filter(b => b.checked).length, dup = importRows.filter(b => b.dup).length;
+    $("import-summary").textContent = `${importRows.length} kitap bulundu` + (dup ? ` · ${dup} tanesi zaten kitaplığında, işaretini kaldırdım` : "");
+    $("import-confirm-btn").textContent = n ? `${n} kitabı ekle` : "Kitap seçilmedi";
+    $("import-confirm-btn").disabled = !n;
+}
+
+function confirmImport() {
+    const chosen = importRows.filter(b => b.checked);
+    if (!chosen.length) return;
+    if (state.isDemo && confirm("Örnek kitapları kaldırıp yalnızca kendi listeni bırakayım mı?")) {
+        const demoIds = new Set([ "b1", "b2", "b3", "b4", "b5" ]);
+        state.books = state.books.filter(b => !demoIds.has(b.id));
+        state.sessions = state.sessions.filter(x => !demoIds.has(x.bookId));
+        state.notes = state.notes.filter(x => !demoIds.has(x.bookId));
+        state.isDemo = false;
+    }
+    const defStatus = $("import-default-status").value, owned = $("import-owned").checked, enrich = $("import-enrich").checked;
+    const colors = [ "#7C1D2D", "#2B4C48", "#C2592B", "#1E3A5F", "#3D2E2A" ];
+    const added = chosen.map((b, i) => {
+        const status = b.status || defStatus;
+        const book = {
+            id: uid("b"),
+            title: b.title,
+            author: b.author,
+            publisher: b.publisher,
+            translator: b.translator,
+            isbn: b.isbn,
+            totalPages: b.totalPages,
+            status: status,
+            owned: owned,
+            isPrivate: false,
+            shelves: [],
+            coverUrl: "",
+            source: "import",
+            loan: cleanLoan({}),
+            currentPage: status === "finished" ? b.totalPages : 0,
+            rating: b.rating || 0,
+            readCount: [ "wishlist", "toread" ].includes(status) ? 0 : 1,
+            coverColor: colors[(state.books.length + i) % colors.length],
+            coverAccent: "#FAF3E7"
+        };
+        if (status === "finished") book.finishedAt = null;
+        if (enrich) book.lookup = true;
+        return book;
+    });
+    state.books = [ ...added, ...state.books ];
+    persist();
+    closeModal("import-modal");
+    renderAll();
+    showToast(`${added.length} kitap kitaplığına eklendi.` + (enrich ? " Kapaklar arka planda aranıyor." : ""));
+    if (enrich) runImportLookup();
+}
+
+let importLookupRunning = false;
+
+function renderImportProgress() {
+    const el = $("import-progress");
+    if (!el) return;
+    const left = state.books.filter(b => b.lookup).length;
+    el.classList.toggle("hidden", !left || !importLookupRunning);
+    el.textContent = left ? `Abidin kapakları ve sayfa sayılarını arıyor · ${left} kitap kaldı` : "";
+}
+
+function pickImportMatch(b, books) {
+    const t = fold(b.title), a = fold(b.author), p = fold(b.publisher);
+    const aTokens = a.split(" ").filter(x => x.length > 2);
+    const ok = books.filter(c => {
+        const ct = fold(c.title);
+        if (!ct) return false;
+        const titleOk = ct === t || ct.startsWith(t + " ") || t.startsWith(ct + " ") && ct.length >= 6;
+        if (!titleOk) return false;
+        if (!aTokens.length) return true;
+        const ca = fold(c.author);
+        return aTokens.some(x => ca.includes(x));
+    });
+    const score = c => (c.coverUrl ? 4 : 0) + (p && fold(c.publisher).includes(p.split(" ")[0]) ? 3 : 0) + (c.totalPages ? 1 : 0) + (fold(c.title) === t ? 2 : 0);
+    return ok.sort((x, y) => score(y) - score(x))[0] || null;
+}
+
+async function runImportLookup() {
+    if (importLookupRunning) return;
+    importLookupRunning = true;
+    renderImportProgress();
+    let sinceRender = 0;
+    try {
+        while (true) {
+            if (!navigator.onLine) break;
+            const b = state.books.find(x => x.lookup);
+            if (!b) break;
+            let result;
+            try {
+                result = await catalogSearch([ b.title, b.author ].filter(Boolean).join(" "), (new AbortController).signal);
+            } catch (e) {
+                break;
+            }
+            if (result.failures >= result.sourceCount) break;
+            const live = state.books.find(x => x.id === b.id);
+            if (live) {
+                const m = pickImportMatch(live, result.books);
+                if (m) {
+                    if (!live.coverUrl && safeImg(m.coverUrl || "")) live.coverUrl = safeImg(m.coverUrl);
+                    if (!live.totalPages && m.totalPages > 0 && m.totalPages < 1e5) {
+                        live.totalPages = m.totalPages;
+                        if (live.status === "finished") live.currentPage = m.totalPages;
+                    }
+                    if (!live.isbn && m.isbn) live.isbn = normalizeISBN(m.isbn);
+                    if (!live.publisher && m.publisher) live.publisher = m.publisher;
+                    if (!live.author && m.author) live.author = m.author;
+                }
+                delete live.lookup;
+                persist();
+            }
+            renderImportProgress();
+            if (++sinceRender >= 5) {
+                sinceRender = 0;
+                renderAll();
+            }
+            await new Promise(r => setTimeout(r, 700));
+        }
+    } finally {
+        importLookupRunning = false;
+        renderImportProgress();
+        renderAll();
+    }
+}
+
+function openImport() {
+    importRows = [];
+    $("import-preview").classList.add("hidden");
+    $("import-paste").value = "";
+    openModal("import-modal");
+}
+
+$("open-import-btn").onclick = openImport;
+
+$("bulk-import-link").onclick = () => {
+    closeModal("add-book-modal");
+    openImport();
+};
+
+$("import-file-input").addEventListener("change", e => readImportFile(e.target.files[0]));
+
+$("import-paste-btn").onclick = () => {
+    const t = $("import-paste").value;
+    if (!t.trim()) {
+        showToast("Önce listeni yapıştır.");
+        return;
+    }
+    showImportPreview(parseImportText(t));
+};
+
+$("import-all").onclick = () => {
+    importRows.forEach(b => b.checked = true);
+    $("import-preview-list").querySelectorAll("input").forEach(c => c.checked = true);
+    updateImportSummary();
+};
+
+$("import-none").onclick = () => {
+    importRows.forEach(b => b.checked = false);
+    $("import-preview-list").querySelectorAll("input").forEach(c => c.checked = false);
+    updateImportSummary();
+};
+
+$("import-confirm-btn").onclick = confirmImport;
+
+window.addEventListener("online", () => {
+    if (state.books.some(b => b.lookup)) runImportLookup();
+});
+
+setTimeout(() => {
+    if (state.books.some(b => b.lookup)) runImportLookup();
+}, 2500);
 
 (function() {
     const served = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";

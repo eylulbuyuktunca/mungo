@@ -1,4 +1,4 @@
-const VERSION = "mungo-v34";
+const VERSION = "mungo-v35";
 
 const SHELL = `${VERSION}-shell`;
 
