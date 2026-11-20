@@ -2299,6 +2299,7 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 .mungo-tour-steps{max-width:46ch}
 .mungo-tour-steps li{color:var(--ink);counter-increment:st;position:relative;padding-left:34px;line-height:1.45}
 .mungo-tour-steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:24px;height:24px;display:grid;place-items:center;background:var(--green);color:#FFF6E2;font-weight:700;font-size:13px}
+.mungo-tour-install{margin-top:12px;padding:8px 16px;font-weight:700}
 </style>
 </head>
 <body class="min-h-screen pb-24 md:pb-10">
@@ -6698,6 +6699,35 @@ const mungoTourSlides = [ {
     note: "Hazırsan başlayalım."
 } ];
 
+(function() {
+    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+    if (standalone) return;
+    const ua = navigator.userAgent || "";
+    const ios = /iPhone|iPad|iPod/.test(ua) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+    const android = /Android/.test(ua);
+    let slide;
+    if (ios) slide = {
+        title: "Beni ana ekranına ekle.",
+        body: "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.",
+        steps: [ "Safari’de alttaki Paylaş düğmesine dokun (yukarı oklu kare).", "Listeyi kaydırıp “Ana Ekrana Ekle”yi seç.", "Sağ üstteki “Ekle”ye dokun. Abidin ana ekranında!" ],
+        note: "Paylaş düğmesini bulamazsan bu adresi Safari’de aç.",
+        install: true
+    }; else if (android) slide = {
+        title: "Beni ana ekranına ekle.",
+        body: "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.",
+        steps: [ "Chrome’da sağ üstteki üç noktaya (⋮) dokun.", "“Uygulamayı yükle” ya da “Ana ekrana ekle”yi seç.", "“Yükle”ye dokun. Abidin ana ekranında!" ],
+        note: "Adımların altında “Şimdi kur” düğmesi görürsen ona dokunman da yeter.",
+        install: true
+    }; else slide = {
+        title: "Beni telefonuna da ekle.",
+        body: "mungo telefonda bir uygulama gibi çalışır. Bu adresi telefonunda aç:",
+        steps: [ "iPhone’da Safari’de Paylaş → “Ana Ekrana Ekle”.", "Android’de Chrome’da ⋮ → “Uygulamayı yükle”.", "Bilgisayarda da adres çubuğundaki kur simgesiyle ekleyebilirsin." ],
+        note: "Not: Kayıtlar her cihazda ayrı tutulur. Taşımak için JSON yedeğini kullan.",
+        install: true
+    };
+    mungoTourSlides.splice(1, 0, slide);
+})();
+
 let mungoTourIndex = 0;
 
 let mungoTourLastFocus = null;
@@ -6728,6 +6758,23 @@ function mungoRenderTour() {
     }[c]));
     $("mungo-onboarding-description").innerHTML = esc(s.body) + (s.steps ? '<ol class="mungo-tour-steps">' + s.steps.map(x => "<li>" + esc(x) + "</li>").join("") + "</ol>" : "");
     $("mungo-onboarding-feature").textContent = s.note;
+    if (s.install && window.__mungoInstall) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "retro-btn mungo-tour-install";
+        b.textContent = "Şimdi kur";
+        b.onclick = async () => {
+            const ev = window.__mungoInstall;
+            if (!ev) return;
+            ev.prompt();
+            try {
+                await ev.userChoice;
+            } catch (e) {}
+            window.__mungoInstall = null;
+            b.remove();
+        };
+        $("mungo-onboarding-description").appendChild(b);
+    }
     $("mungo-onboarding-progress").innerHTML = mungoTourSlides.map((_, i) => `<span class="${i === mungoTourIndex ? "is-active" : ""}" aria-hidden="true"></span>`).join("");
     $("mungo-onboarding-back").hidden = mungoTourIndex === 0;
     $("mungo-onboarding-next").textContent = mungoTourIndex === mungoTourSlides.length - 1 ? "Başlayalım" : "Devam et";
@@ -6811,6 +6858,7 @@ if (!mungoTourSeen()) mungoOpenTour();
     window.addEventListener("beforeinstallprompt", e => {
         e.preventDefault();
         installEvent = e;
+        window.__mungoInstall = e;
         btn.classList.remove("hidden");
     });
     btn.addEventListener("click", async () => {
@@ -6820,6 +6868,7 @@ if (!mungoTourSeen()) mungoOpenTour();
             await installEvent.userChoice;
         } catch (e) {}
         installEvent = null;
+        window.__mungoInstall = null;
         btn.classList.add("hidden");
     });
     window.addEventListener("appinstalled", () => {
