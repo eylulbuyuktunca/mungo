@@ -2310,6 +2310,13 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 .import-row-info em{color:var(--bordo);font-size:11px;font-style:normal;font-weight:700}
 .import-row.is-dup{opacity:.7}
 #import-confirm-btn:disabled{opacity:.5;cursor:not-allowed}
+.install-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--green-soft);border:1.5px solid color-mix(in srgb,var(--green) 55%,var(--ink));color:var(--ink);font-size:13px;font-weight:600}
+.install-banner.hidden{display:none}
+.install-banner-actions{display:flex;align-items:center;gap:8px;flex:none}
+.install-banner-x{font-weight:700;color:var(--muted);padding:4px 6px}
+html.dark .install-banner{background:color-mix(in srgb,var(--green) 22%,var(--surface))}
+.install-help-body{font-size:14px;color:var(--ink);line-height:1.5}
+.install-help-note{margin-top:10px;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body class="min-h-screen pb-24 md:pb-10">
@@ -2438,6 +2445,7 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 
     
     <section id="tab-today" class="tab-panel space-y-5">
+      <div id="install-banner" class="install-banner hidden"><span>📲 Mungo'yu ana ekranına ekle, uygulama gibi açılsın.</span><span class="install-banner-actions"><button type="button" id="install-banner-open" class="retro-btn rounded-xl px-3 py-1.5 text-xs font-semibold">Nasıl?</button><button type="button" id="install-banner-close" class="install-banner-x" aria-label="Kapat">✕</button></span></div>
       <div id="sample-flag" class="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]"><span><strong>Örnek kitaplık</strong> · Buradaki kayıtlar tanıtım amaçlıdır.</span><button id="clear-demo" class="underline text-[var(--bordo)] font-semibold">Örnekleri temizle ve kendi kitaplığımı aç</button></div>
     
       <div class="retro-card mungo-hero overflow-hidden">
@@ -2929,6 +2937,15 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
     </div>
   </div>
 
+    <div id="install-help-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+    <div class="retro-card w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between gap-3">
+        <h3 id="install-help-title" class="font-serif-display text-xl font-bold text-[var(--bordo)]"></h3>
+        <button data-close-modal="install-help-modal" class="text-lg font-bold text-[var(--muted)]" aria-label="Kapat">✕</button>
+      </div>
+      <div id="install-help-body" class="install-help-body"></div>
+    </div>
+  </div>
   <div id="import-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
     <div class="retro-card w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
@@ -6752,34 +6769,69 @@ const mungoTourSlides = [ {
     note: "Hazırsan başlayalım."
 } ];
 
-(function() {
-    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
-    if (standalone) return;
+function mungoPlatform() {
     const ua = navigator.userAgent || "";
+    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
     const ios = /iPhone|iPad|iPod/.test(ua) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
     const android = /Android/.test(ua);
-    let slide;
-    if (ios) slide = {
-        title: "Beni ana ekranına ekle.",
-        body: "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.",
-        steps: [ "Safari’de alttaki Paylaş düğmesine dokun (yukarı oklu kare).", "Listeyi kaydırıp “Ana Ekrana Ekle”yi seç.", "Sağ üstteki “Ekle”ye dokun. Abidin ana ekranında!" ],
-        note: "Paylaş düğmesini bulamazsan bu adresi Safari’de aç.",
-        install: true
-    }; else if (android) slide = {
-        title: "Beni ana ekranına ekle.",
-        body: "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.",
-        steps: [ "Chrome’da sağ üstteki üç noktaya (⋮) dokun.", "“Uygulamayı yükle” ya da “Ana ekrana ekle”yi seç.", "“Yükle”ye dokun. Abidin ana ekranında!" ],
-        note: "Adımların altında “Şimdi kur” düğmesi görürsen ona dokunman da yeter.",
-        install: true
-    }; else slide = {
-        title: "Beni telefonuna da ekle.",
-        body: "mungo telefonda bir uygulama gibi çalışır. Bu adresi telefonunda aç:",
-        steps: [ "iPhone’da Safari’de Paylaş → “Ana Ekrana Ekle”.", "Android’de Chrome’da ⋮ → “Uygulamayı yükle”.", "Bilgisayarda da adres çubuğundaki kur simgesiyle ekleyebilirsin." ],
-        note: "Not: Kayıtlar her cihazda ayrı tutulur. Taşımak için JSON yedeğini kullan.",
-        install: true
+    const inApp = /Instagram|FBAN|FBAV|FB_IAB|Twitter|TikTok|BytedanceWebview|musical_ly|Line\/|LinkedInApp|Snapchat|Pinterest|GSA\//.test(ua);
+    const iosOther = ios && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+    return {
+        ua: ua,
+        standalone: standalone,
+        ios: ios,
+        android: android,
+        inApp: inApp,
+        iosOther: iosOther,
+        mobile: ios || android
     };
-    mungoTourSlides.splice(1, 0, slide);
-})();
+}
+
+function mungoInstallGuide() {
+    const p = mungoPlatform();
+    const why = "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.";
+    if (p.ios && p.inApp) return {
+        title: "Önce Safari’de aç.",
+        body: "Şu an bir uygulamanın içindeki tarayıcıdasın (Instagram gibi). Buradan ana ekrana eklenemiyor.",
+        steps: [ "Sağ üstteki ya da alttaki “•••” menüsüne dokun.", "“Tarayıcıda aç” ya da “Safari’de aç”ı seç.", "Safari’de alttaki Paylaş düğmesine, sonra “Ana Ekrana Ekle”ye dokun." ],
+        note: "Menüyü bulamazsan adresi kopyalayıp Safari’ye yapıştır: eylulbuyuktunca.github.io/mungo"
+    };
+    if (p.ios && p.iosOther) return {
+        title: "Beni ana ekranına ekle.",
+        body: why,
+        steps: [ "Adres çubuğundaki Paylaş düğmesine dokun (yukarı oklu kare).", "“Ana Ekrana Ekle”yi seç.", "“Ekle”ye dokun. Abidin ana ekranında!" ],
+        note: "Paylaş menüsünde “Ana Ekrana Ekle” yoksa siteyi Safari’de aç."
+    };
+    if (p.ios) return {
+        title: "Beni ana ekranına ekle.",
+        body: why,
+        steps: [ "Alttaki Paylaş düğmesine dokun (yukarı oklu kare). Göremiyorsan önce sayfayı biraz aşağı kaydır ya da alttaki “•••” düğmesine dokun.", "Açılan listeyi aşağı kaydırıp “Ana Ekrana Ekle”yi seç.", "Sağ üstteki “Ekle”ye dokun. Abidin ana ekranında!" ],
+        note: "WhatsApp’tan açtıysan önce Safari simgesine dokunup siteyi Safari’de aç; WhatsApp’ın içinden eklenemiyor."
+    };
+    if (p.android && p.inApp) return {
+        title: "Önce Chrome’da aç.",
+        body: "Şu an bir uygulamanın içindeki tarayıcıdasın (Instagram gibi). Buradan ana ekrana eklenemiyor.",
+        steps: [ "Sağ üstteki “⋮” menüsüne dokun.", "“Chrome’da aç” ya da “Tarayıcıda aç”ı seç.", "Chrome’da ⋮ → “Uygulamayı yükle”ye dokun." ],
+        note: "Adres: eylulbuyuktunca.github.io/mungo"
+    };
+    if (p.android) return {
+        title: "Beni ana ekranına ekle.",
+        body: why,
+        steps: [ "Chrome’da sağ üstteki üç noktaya (⋮) dokun.", "“Uygulamayı yükle” ya da “Ana ekrana ekle”yi seç.", "“Yükle”ye dokun. Abidin ana ekranında!" ],
+        note: "Aşağıda “Şimdi kur” düğmesi görürsen ona dokunman da yeter."
+    };
+    return {
+        title: "Beni telefonuna da ekle.",
+        body: "mungo telefonda bir uygulama gibi çalışır. Bu adresi telefonunda aç: eylulbuyuktunca.github.io/mungo",
+        steps: [ "iPhone’da Safari’de Paylaş → “Ana Ekrana Ekle”.", "Android’de Chrome’da ⋮ → “Uygulamayı yükle”.", "Bilgisayarda da adres çubuğundaki kur simgesiyle ekleyebilirsin." ],
+        note: "Kayıtlar her cihazda ayrı tutulur. Taşımak için JSON yedeğini kullan."
+    };
+}
+
+if (!mungoPlatform().standalone) mungoTourSlides.splice(1, 0, {
+    ...mungoInstallGuide(),
+    install: true
+});
 
 let mungoTourIndex = 0;
 
@@ -7375,24 +7427,85 @@ setTimeout(() => {
     if (served && "serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     let installEvent = null;
     const btn = $("install-app-btn");
+    const plat = mungoPlatform();
+    function renderInstallHelp() {
+        const g = mungoInstallGuide();
+        $("install-help-title").textContent = g.title;
+        const box = $("install-help-body");
+        box.innerHTML = "";
+        const p = document.createElement("p");
+        p.textContent = g.body;
+        box.append(p);
+        const ol = document.createElement("ol");
+        ol.className = "mungo-tour-steps";
+        g.steps.forEach(x => {
+            const li = document.createElement("li");
+            li.textContent = x;
+            ol.append(li);
+        });
+        box.append(ol);
+        const n = document.createElement("p");
+        n.className = "install-help-note";
+        n.textContent = g.note;
+        box.append(n);
+        if (installEvent) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "retro-btn mungo-tour-install";
+            b.textContent = "Şimdi kur";
+            b.onclick = () => {
+                closeModal("install-help-modal");
+                btn.click();
+            };
+            box.append(b);
+        }
+    }
+    function openInstallHelp() {
+        renderInstallHelp();
+        openModal("install-help-modal");
+    }
+    window.mungoOpenInstallHelp = openInstallHelp;
+    const BANNER_KEY = "mungo_install_banner_closed";
+    function syncInstallUI() {
+        const show = !plat.standalone && (plat.mobile || !!installEvent);
+        btn.classList.toggle("hidden", !show);
+        btn.textContent = installEvent ? "📲 Mungo'yu telefona kur" : "📲 Ana ekrana ekle";
+        let closed = false;
+        try {
+            closed = localStorage.getItem(BANNER_KEY) === "1";
+        } catch (e) {}
+        $("install-banner").classList.toggle("hidden", !(plat.mobile && !plat.standalone && !closed));
+    }
+    $("install-banner-open").onclick = openInstallHelp;
+    $("install-banner-close").onclick = () => {
+        try {
+            localStorage.setItem(BANNER_KEY, "1");
+        } catch (e) {}
+        syncInstallUI();
+    };
+    syncInstallUI();
     window.addEventListener("beforeinstallprompt", e => {
         e.preventDefault();
         installEvent = e;
         window.__mungoInstall = e;
-        btn.classList.remove("hidden");
+        syncInstallUI();
     });
     btn.addEventListener("click", async () => {
-        if (!installEvent) return;
+        if (!installEvent) {
+            openInstallHelp();
+            return;
+        }
         installEvent.prompt();
         try {
             await installEvent.userChoice;
         } catch (e) {}
         installEvent = null;
         window.__mungoInstall = null;
-        btn.classList.add("hidden");
+        syncInstallUI();
     });
     window.addEventListener("appinstalled", () => {
         btn.classList.add("hidden");
+        $("install-banner").classList.add("hidden");
         showToast("Mungo ana ekranına eklendi. 🐢");
     });
     if (served && navigator.storage?.persist) navigator.storage.persisted().then(p => {
