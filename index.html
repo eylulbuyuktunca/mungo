@@ -2317,6 +2317,7 @@ html.dark .mungo-onboarding-art{background-image:repeating-linear-gradient(90deg
 html.dark .install-banner{background:color-mix(in srgb,var(--green) 22%,var(--surface))}
 .install-help-body{font-size:14px;color:var(--ink);line-height:1.5}
 .install-help-note{margin-top:10px;font-size:12.5px;color:var(--muted)}
+#mungo-onboarding-feature.hidden{display:none!important}
 </style>
 </head>
 <body class="min-h-screen pb-24 md:pb-10">
@@ -6789,42 +6790,36 @@ function mungoPlatform() {
 
 function mungoInstallGuide() {
     const p = mungoPlatform();
-    const why = "Böylece mungo bir uygulama gibi açılır, internetsiz de çalışır.";
+    const why = "Uygulama gibi açılır, internetsiz de çalışır.";
     if (p.ios && p.inApp) return {
         title: "Önce Safari’de aç.",
-        body: "Şu an bir uygulamanın içindeki tarayıcıdasın (Instagram gibi). Buradan ana ekrana eklenemiyor.",
-        steps: [ "Sağ üstteki ya da alttaki “•••” menüsüne dokun.", "“Tarayıcıda aç” ya da “Safari’de aç”ı seç.", "Safari’de alttaki Paylaş düğmesine, sonra “Ana Ekrana Ekle”ye dokun." ],
-        note: "Menüyü bulamazsan adresi kopyalayıp Safari’ye yapıştır: eylulbuyuktunca.github.io/mungo"
-    };
-    if (p.ios && p.iosOther) return {
-        title: "Beni ana ekranına ekle.",
-        body: why,
-        steps: [ "Adres çubuğundaki Paylaş düğmesine dokun (yukarı oklu kare).", "“Ana Ekrana Ekle”yi seç.", "“Ekle”ye dokun. Abidin ana ekranında!" ],
-        note: "Paylaş menüsünde “Ana Ekrana Ekle” yoksa siteyi Safari’de aç."
+        body: "Bu tarayıcıdan ana ekrana eklenemiyor.",
+        steps: [ "“•••” menüsünden “Safari’de aç”ı seç.", "Safari’de Paylaş → “Ana Ekrana Ekle”." ],
+        note: ""
     };
     if (p.ios) return {
         title: "Beni ana ekranına ekle.",
         body: why,
-        steps: [ "Alttaki Paylaş düğmesine dokun (yukarı oklu kare). Göremiyorsan önce sayfayı biraz aşağı kaydır ya da alttaki “•••” düğmesine dokun.", "Açılan listeyi aşağı kaydırıp “Ana Ekrana Ekle”yi seç.", "Sağ üstteki “Ekle”ye dokun. Abidin ana ekranında!" ],
-        note: "WhatsApp’tan açtıysan önce Safari simgesine dokunup siteyi Safari’de aç; WhatsApp’ın içinden eklenemiyor."
+        steps: [ "Paylaş düğmesine dokun (yukarı oklu kare).", "“Ana Ekrana Ekle”yi seç, sonra “Ekle”." ],
+        note: "WhatsApp’tan açtıysan önce Safari’de aç."
     };
     if (p.android && p.inApp) return {
         title: "Önce Chrome’da aç.",
-        body: "Şu an bir uygulamanın içindeki tarayıcıdasın (Instagram gibi). Buradan ana ekrana eklenemiyor.",
-        steps: [ "Sağ üstteki “⋮” menüsüne dokun.", "“Chrome’da aç” ya da “Tarayıcıda aç”ı seç.", "Chrome’da ⋮ → “Uygulamayı yükle”ye dokun." ],
-        note: "Adres: eylulbuyuktunca.github.io/mungo"
+        body: "Bu tarayıcıdan ana ekrana eklenemiyor.",
+        steps: [ "⋮ menüsünden “Chrome’da aç”ı seç.", "Chrome’da ⋮ → “Uygulamayı yükle”." ],
+        note: ""
     };
     if (p.android) return {
         title: "Beni ana ekranına ekle.",
         body: why,
-        steps: [ "Chrome’da sağ üstteki üç noktaya (⋮) dokun.", "“Uygulamayı yükle” ya da “Ana ekrana ekle”yi seç.", "“Yükle”ye dokun. Abidin ana ekranında!" ],
-        note: "Aşağıda “Şimdi kur” düğmesi görürsen ona dokunman da yeter."
+        steps: [ "Chrome’da ⋮ menüsüne dokun.", "“Uygulamayı yükle”yi seç." ],
+        note: ""
     };
     return {
         title: "Beni telefonuna da ekle.",
-        body: "mungo telefonda bir uygulama gibi çalışır. Bu adresi telefonunda aç: eylulbuyuktunca.github.io/mungo",
-        steps: [ "iPhone’da Safari’de Paylaş → “Ana Ekrana Ekle”.", "Android’de Chrome’da ⋮ → “Uygulamayı yükle”.", "Bilgisayarda da adres çubuğundaki kur simgesiyle ekleyebilirsin." ],
-        note: "Kayıtlar her cihazda ayrı tutulur. Taşımak için JSON yedeğini kullan."
+        body: "Bu adresi telefonunda aç: eylulbuyuktunca.github.io/mungo",
+        steps: [ "iPhone: Paylaş → “Ana Ekrana Ekle”.", "Android: ⋮ → “Uygulamayı yükle”." ],
+        note: "Kayıtlar her cihazda ayrı tutulur."
     };
 }
 
@@ -6862,7 +6857,8 @@ function mungoRenderTour() {
         '"': "&quot;"
     }[c]));
     $("mungo-onboarding-description").innerHTML = esc(s.body) + (s.steps ? '<ol class="mungo-tour-steps">' + s.steps.map(x => "<li>" + esc(x) + "</li>").join("") + "</ol>" : "");
-    $("mungo-onboarding-feature").textContent = s.note;
+    $("mungo-onboarding-feature").textContent = s.note || "";
+    $("mungo-onboarding-feature").classList.toggle("hidden", !s.note);
     if (s.install && window.__mungoInstall) {
         const b = document.createElement("button");
         b.type = "button";
@@ -7444,10 +7440,12 @@ setTimeout(() => {
             ol.append(li);
         });
         box.append(ol);
-        const n = document.createElement("p");
-        n.className = "install-help-note";
-        n.textContent = g.note;
-        box.append(n);
+        if (g.note) {
+            const n = document.createElement("p");
+            n.className = "install-help-note";
+            n.textContent = g.note;
+            box.append(n);
+        }
         if (installEvent) {
             const b = document.createElement("button");
             b.type = "button";
