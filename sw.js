@@ -1,4 +1,4 @@
-const VERSION = "mungo-v37";
+const VERSION = "mungo-v38";
 
 const SHELL = `${VERSION}-shell`;
 
@@ -11,11 +11,11 @@ const RUNTIME_HOSTS = [ "fonts.googleapis.com", "fonts.gstatic.com", "covers.ope
 const RUNTIME_LIMIT = 300;
 
 self.addEventListener("install", event => {
-    event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+    event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(SHELL_FILES.map(path => new Request(path, {cache: "reload"})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", event => {
-    event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => !k.startsWith(VERSION)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+    event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => /^mungo-v\d+-(shell|runtime)$/.test(k) && k !== SHELL && k !== RUNTIME).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
 async function trimRuntime() {
@@ -28,10 +28,13 @@ self.addEventListener("fetch", event => {
     const req = event.request;
     if (req.method !== "GET") return;
     const url = new URL(req.url);
-    if (req.mode === "navigate" && url.origin === self.location.origin) {
-        event.respondWith(fetch(req).then(res => {
-            const copy = res.clone();
-            caches.open(SHELL).then(c => c.put("./index.html", copy));
+    const shellPage = ["./", "./index.html"].some(path => url.href.split(/[?#]/, 1)[0] === new URL(path, self.registration.scope).href);
+    if (req.mode === "navigate" && shellPage) {
+        event.respondWith(fetch(req).then(async res => {
+            if (res.ok) {
+                const cache = await caches.open(SHELL);
+                await cache.put("./index.html", res.clone()).catch(() => {});
+            }
             return res;
         }).catch(() => caches.match("./index.html")));
         return;
